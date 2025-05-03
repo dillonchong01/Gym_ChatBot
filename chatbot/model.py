@@ -32,20 +32,56 @@ class SQLGenerator:
         Generates query based on the intent and details
         For now our only trained intent is to view capacity of a gym
         """
-        query = f"SELECT AVG(capacity) FROM gym_capacity_summary"
+        # Initialize List to store Specific Conditions
         conditions = []
 
-        # Add Conditions based on User Input
-        if gym_name:
-            conditions.append(f"gym_name = ?")
-        if time:
-            conditions.append(f"time = ?")
-        if weekend_info is not None:
-            conditions.append(f"is_weekend = ?")
+        # If Intent is to Get Gym Details
+        if intent == 0:
+            query = "SELECT AVG(capacity) FROM gym_capacity_summary"
 
-        # Add Conditions into SQL Query
-        if conditions:
-            query += " WHERE " + " AND ".join(conditions)
+            # Add Conditions based on User Input
+            if gym_name:
+                conditions.append(f"gym_name = ?")
+            if time:
+                conditions.append(f"time = ?")
+            if weekend_info is not None:
+                conditions.append(f"is_weekend = ?")
+
+            # Add Conditions into SQL Query
+            if conditions:
+                query += " WHERE " + " AND ".join(conditions)
+
+        elif intent in [1, 2]:
+            query = "SELECT gym_name, AVG(capacity) AS avg_capacity FROM gym_capacity_summary"
+
+             # Add Conditions based on User Input
+            if time:
+                conditions.append(f"time = ?")
+            if weekend_info is not None:
+                conditions.append(f"is_weekend = ?")
+
+            # Add Conditions into SQL Query
+            if conditions:
+                query += " WHERE " + " AND ".join(conditions) + " GROUP BY gym_name"
+
+            # Order by Asc/Desc depending on Intent 1 or 2
+            if intent == 1:         
+                query += " ORDER BY avg_capacity ASC LIMIT 1"
+            else:
+                query += " ORDER BY avg_capacity DESC LIMIT 1"
+
+        elif intent == 3:
+            query = "SELECT time, AVG(capacity) as avg_capacity FROM gym_capacity_summary"
+
+             # Add Conditions based on User Input
+            if gym_name:
+                conditions.append(f"gym_name = ?")
+            if weekend_info is not None:
+                conditions.append(f"is_weekend = ?")
+
+            # Add Conditions into SQL Query
+            if conditions:
+                query += " WHERE " + " AND ".join(conditions) + " GROUP BY time ORDER BY avg_capacity ASC LIMIT 1"
 
         return query
     
@@ -151,8 +187,8 @@ class ChatBot:
         Gets response from chatbot based on user input
         """
         # Get Intent
-        intent = None
-        # intent = self.get_intent(user_input)      ADD LATEr
+        intent = 3  # PLACEHOLDER HARD CODE FOR NOW as get_intent is not fully working
+        # intent = self.get_intent(user_input)      ADD LATER
 
         # Get Details
         gym_name = self.get_gym(user_input)
@@ -161,24 +197,53 @@ class ChatBot:
 
         # Generate SQL Query and get Results
         query = self.sql_generator.generate_query(intent, gym_name, time, weekend_info)
-        params = [p for p in (gym_name, time, int(weekend_info)
-                              if weekend_info is not None else None) if p is not None]
         print(query)
-        print(params)
 
-        # Formulate Response
-        result = self.database.execute_query(query, params)
-        avg_capacity = result[0] if result else None
+        # Get Results for Intent 1
+        if intent == 0:
+            params = [p for p in (gym_name, time, int(weekend_info)
+                                  if weekend_info is not None else None) if p is not None]
+            avg_capacity =  self.database.execute_query(query, params)
 
-        if avg_capacity is not None:
-            parts = ["The average capacity"]
-            if gym_name:
-                parts.append(f"of {gym_name} ActiveSG Gym")
-            if time:
-                parts.append(f"at {time}")
-            if weekend_info is not None:
-                parts.append("on weekends" if weekend_info else "on weekdays")
-            return f"{' '.join(parts)} is {avg_capacity:.1f}%"
+            if avg_capacity is not None:
+                parts = ["The average capacity"]
+                if gym_name:
+                    parts.append(f"of {gym_name} ActiveSG Gym")
+                if time:
+                    parts.append(f"at {time}")
+                if weekend_info is not None:
+                    parts.append("on weekends" if weekend_info else "on weekdays")
+                return f"{' '.join(parts)} is {avg_capacity:.1f}%"
+        
+        # Get Results for Intent 2 and Intent 3
+        elif intent in [1, 2]:
+            params = [p for p in (time, int(weekend_info)
+                                  if weekend_info is not None else None) if p is not None]
+            gym, avg_capacity =  self.database.execute_query(query, params)
+
+            if gym and avg_capacity is not None:
+                if intent == 1:
+                    parts = ["The least crowded gym"]
+                else:
+                    parts = ["The most crowded gym"]
+                if time:
+                    parts.append(f"at {time}")
+                if weekend_info is not None:
+                    parts.append("on weekends" if weekend_info else "on weekdays")
+                return f"{' '.join(parts)} is {gym} ActiveSG Gym with an average capacity of {avg_capacity:.1f}%"
+            
+        elif intent == 3:
+            params = [p for p in (gym_name, int(weekend_info)
+                                  if weekend_info is not None else None) if p is not None]
+            best_time, avg_capacity =  self.database.execute_query(query, params)
+
+            if best_time and avg_capacity is not None:
+                parts = [f"The best time to visit {gym_name} ActiveSG Gym"]
+                if weekend_info is not None:
+                    parts.append("on weekends" if weekend_info else "on weekdays")
+                return f"{' '.join(parts)} is {best_time} with an average capacity of {avg_capacity:.1f}%"
+
+        # If unable to get results
         return "Sorry, I could not find any information on your request"
 
 
@@ -186,7 +251,7 @@ database = Database("databases/gym_capacity_summary.db")
 sql_generator = SQLGenerator()
 chatbot = ChatBot(model=None, gyms=GYMS, database=database, sql_generator=sql_generator)
 
-user_input = "What is the capacity of Toa Payoh on weekdays at 10am?"
+user_input = "what is the best time to visit tampines activesg gym on weekdays"
 user_input = user_input.lower()
 response = chatbot.get_response(user_input)
 print(response)
