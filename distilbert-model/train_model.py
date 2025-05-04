@@ -1,6 +1,5 @@
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trainer, TrainingArguments
 from sklearn.model_selection import train_test_split
-import torch
 from datasets import Dataset
 from intent_train_data import data
 from sklearn.metrics import accuracy_score, f1_score

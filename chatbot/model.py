@@ -1,96 +1,14 @@
-import re
 import torch
-import sqlite3
+from functools import lru_cache
 from rapidfuzz import process, fuzz
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from config import GYMS, TIME_REGEX
-
-# REGEX for Parsing Time
-
-
-class Database:
-    def __init__(self, db_name):
-        # Connect to the Database
-        self.connection = sqlite3.connect(db_name, check_same_thread=False)
-
-    def execute_query(self, query, params=None):
-        """ Execute Specified query """
-        cursor = self.connection.cursor()
-        if params:
-            cursor.execute(query, params)
-        else:
-            cursor.execute(query)
-        return cursor.fetchone()
-
-
-class SQLGenerator:
-    def __init__(self):
-        pass
-    
-    def generate_query(self, intent, gym_name, time, weekend_info):
-        """
-        Generates query based on the intent and details
-        For now our only trained intent is to view capacity of a gym
-        """
-        # Initialize List to store Specific Conditions
-        conditions = []
-
-        # If Intent is to Get Gym Details
-        if intent == 0:
-            query = "SELECT AVG(capacity) FROM gym_capacity_summary"
-
-            # Add Conditions based on User Input
-            if gym_name:
-                conditions.append(f"gym_name = ?")
-            if time:
-                conditions.append(f"time = ?")
-            if weekend_info is not None:
-                conditions.append(f"is_weekend = ?")
-
-            # Add Conditions into SQL Query
-            if conditions:
-                query += " WHERE " + " AND ".join(conditions)
-
-        elif intent in [1, 2]:
-            query = "SELECT gym_name, AVG(capacity) AS avg_capacity FROM gym_capacity_summary"
-
-             # Add Conditions based on User Input
-            if time:
-                conditions.append(f"time = ?")
-            if weekend_info is not None:
-                conditions.append(f"is_weekend = ?")
-
-            # Add Conditions into SQL Query
-            if conditions:
-                query += " WHERE " + " AND ".join(conditions) + " GROUP BY gym_name"
-
-            # Order by Asc/Desc depending on Intent 1 or 2
-            if intent == 1:         
-                query += " ORDER BY avg_capacity ASC LIMIT 1"
-            else:
-                query += " ORDER BY avg_capacity DESC LIMIT 1"
-
-        elif intent == 3:
-            query = "SELECT time, AVG(capacity) as avg_capacity FROM gym_capacity_summary"
-
-             # Add Conditions based on User Input
-            if gym_name:
-                conditions.append(f"gym_name = ?")
-            if weekend_info is not None:
-                conditions.append(f"is_weekend = ?")
-
-            # Add Conditions into SQL Query
-            if conditions:
-                query += " WHERE " + " AND ".join(conditions) + " GROUP BY time ORDER BY avg_capacity ASC LIMIT 1"
-
-        return query
-    
+from config import GYMS, TIME_REGEX, MODEL_PATH
 
 class ChatBot:
-    def __init__(self, model, gyms, database, sql_generator):
+    def __init__(self, intent_model, gyms, database, sql_generator):
         # # Load Pretrained Model
         # self.tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
-        # self.model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
+        # self.intent_model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
         
         # Gym Names for Extraction
         self.gyms = {self.clean_text(gym): gym for gym in gyms}
@@ -112,7 +30,7 @@ class ChatBot:
 
         # Predict Intent, based on Highest Probability
         with torch.no_grad():
-            outputs = self.model(**inputs)
+            outputs = self.intent_model(**inputs)
             logits = outputs.logits
         intent = torch.argmax(logits, dim=-1).item()
         return intent
@@ -166,19 +84,18 @@ class ChatBot:
             return False
         return None
     
+    @lru_cache(maxsize=128)
     def get_gym(self, user_input):
         """
         Use Fuzzymatch to obtain most relevant gym
         """
-        cleaned_gym_input = self.clean_text(user_input)
-
         # Sort Gyms by Length and Check if there is Exact Match
         for key in sorted(self.gyms.keys(), key=len, reverse=True):
-            if key in cleaned_gym_input:
+            if key in user_input:
                 return self.gyms[key]
         
         # Else use Fuzzy Matching
-        gym_match, score, _ = process.extractOne(cleaned_gym_input, self.gyms.keys(), scorer=fuzz.partial_ratio)
+        gym_match, score, _ = process.extractOne(user_input, self.gyms.keys(), scorer=fuzz.partial_ratio)
         return self.gyms[gym_match] if score >= 75 else None
     
     
@@ -245,13 +162,3 @@ class ChatBot:
 
         # If unable to get results
         return "Sorry, I could not find any information on your request"
-
-
-database = Database("databases/gym_capacity_summary.db")
-sql_generator = SQLGenerator()
-chatbot = ChatBot(model=None, gyms=GYMS, database=database, sql_generator=sql_generator)
-
-user_input = "what is the best time to visit tampines activesg gym on weekdays"
-user_input = user_input.lower()
-response = chatbot.get_response(user_input)
-print(response)
