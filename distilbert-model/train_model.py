@@ -1,12 +1,15 @@
+import pandas as pd
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trainer, TrainingArguments
 from sklearn.model_selection import train_test_split
 from datasets import Dataset
-from intent_train_data import data
 from sklearn.metrics import accuracy_score, f1_score
 
+# Import Data
+df = pd.read_csv("Intent_Train_Data.csv")
+texts = df["Text"].tolist()
+labels = df["Label"].tolist()
 
 # Split Data into Train/Test
-texts, labels = zip(*data)
 train_texts, test_texts, train_labels, test_labels = train_test_split(texts, labels, test_size=0.2, random_state=42)
 
 # Tokenize
