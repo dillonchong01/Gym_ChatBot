@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ActiveSG GymBot</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <h2>🏋️ ActiveSG GymBot</h2>
+
+        <div class="chat-box" id="chatbox"></div>
+
+        <form id="chat-form">
+            <input type="text" id="message" name="message" placeholder="Ask me something..." required>
+            <input type="submit" value="Send">
+        </form>
+    </div>
+
+    <script>
+        const chatbox = document.getElementById("chatbox");
+        const form = document.getElementById("chat-form");
+        const input = document.getElementById("message");
+
+        form.addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            appendMessage("You", msg);
+            input.value = "";
+
+            const formData = new FormData();
+            formData.append("message", msg);
+
+            const response = await fetch("/chat", {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await response.json();
+            appendMessage("Bot", data.reply);
+        });
+
+        function appendMessage(role, text) {
+            const div = document.createElement("div");
+            div.classList.add("message");
+            div.innerHTML = `<span class="${role === 'You' ? 'user' : 'bot'}">${role}:</span> ${text}`;
+            chatbox.appendChild(div);
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+    </script>
+</body>
+</html>
