@@ -1,6 +1,5 @@
 import re
 
-
 MODEL_PATH = ""
 GYMS = ["Ang Mo Kio CC", "Bukit Gombak", "Kallang Basin",
         "Katong", "Bukit Canberra", "Bishan",
