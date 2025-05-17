@@ -1,6 +1,6 @@
 import re
 
-MODEL_PATH = ""
+MODEL_PATH = "intent_model/"
 GYMS = ["Ang Mo Kio CC", "Bukit Gombak", "Kallang Basin",
         "Katong", "Bukit Canberra", "Bishan",
         "Bukit Batok", "Sengkang", "Fernvale Square",
