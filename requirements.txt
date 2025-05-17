@@ -1,5 +1,5 @@
 transformers==4.51.3
-https://download.pytorch.org/whl/cpu/torch-2.7.0%2Bcpu-cp310-cp310-linux_x86_64.whl
+torch==2.3.0
 pandas==2.2.2
 rapidfuzz==3.13.0
 fastapi==0.115.12
