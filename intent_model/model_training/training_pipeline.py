@@ -3,7 +3,6 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trai
 from sklearn.model_selection import train_test_split
 from datasets import Dataset
 from sklearn.metrics import accuracy_score, f1_score
-from optimum.intel.openvino import OVQuantizer, OVConfig, OVModelForSequenceClassification
 
 # Import Data
 df = pd.read_csv("intent_model/model_training/Intent_Train_Data.csv")
