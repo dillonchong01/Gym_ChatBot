@@ -7,7 +7,7 @@ class ChatBot:
     def __init__(self, database, sql_generator):
         # Load Pretrained Model
         self.tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
-        self.session = ort.InferenceSession(f"{MODEL_PATH}/intent_model.onnx")
+        self.session = ort.InferenceSession(f"{MODEL_PATH}/intent_model_quantized.onnx")
         
         # Gym Names for Extraction
         self.database = database

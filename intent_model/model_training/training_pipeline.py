@@ -3,6 +3,7 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trai
 from sklearn.model_selection import train_test_split
 from datasets import Dataset
 from sklearn.metrics import accuracy_score, f1_score
+from onnxruntime.quantization import quantize_dynamic, QuantType
 
 # Import Data
 df = pd.read_csv("intent_model/model_training/Intent_Train_Data.csv")
@@ -78,10 +79,18 @@ from pathlib import Path
 _, model_onnx_config = FeaturesManager.check_supported_model_or_raise(model, feature="sequence-classification")
 onnx_config = model_onnx_config(model.config)
 
+# Save Base Model
 export(
     preprocessor=tokenizer,
     model=model,
     config=onnx_config,
     opset=11,
     output=Path("./intent_model/intent_model.onnx")
+)
+
+# Quantize and Save Model
+quantize_dynamic(
+    model_input="intent_model/intent_model.onnx",
+    model_output="intent_model/intent_model_quantized.onnx",
+    weight_type=QuantType.QInt8
 )
