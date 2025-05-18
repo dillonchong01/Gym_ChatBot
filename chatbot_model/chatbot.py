@@ -1,5 +1,5 @@
-import torch
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import onnxruntime as ort
+from transformers import AutoTokenizer
 from config import MODEL_PATH
 from chatbot_model.helper_functions import get_gym, get_time, get_weekend
 
@@ -7,7 +7,7 @@ class ChatBot:
     def __init__(self, database, sql_generator):
         # Load Pretrained Model
         self.tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
-        self.intent_model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
+        self.session = ort.InferenceSession(f"{MODEL_PATH}/intent_model.onnx")
         
         # Gym Names for Extraction
         self.database = database
@@ -19,19 +19,18 @@ class ChatBot:
     def get_intent(self, user_input):
         """ Takes in user_input and outputs likely intent action """
         # Tokenize the User Input
-        inputs = self.tokenizer(user_input, return_tensors="pt", padding=True, truncation=True)
+        tokens = self.tokenizer(user_input, return_tensors="np", padding=True, truncation=True)
 
-        # Predict Intent, based on Highest Probability
-        with torch.no_grad():
-            outputs = self.intent_model(**inputs)
-        return torch.argmax(outputs.logits, dim=-1).item()
-    
-    def is_new_query(self, gym, time, weekend):
-        """
-        Check if new query (2/3 additional parameters), or a follow-up query
-        """
-        param_count = sum(param is not None for param in [gym, time, weekend])
-        return param_count >= 2
+        # Prepare ONNX-compatible Inputs
+        inputs = {
+        "input_ids": tokens["input_ids"],
+        "attention_mask": tokens["attention_mask"],
+        "token_type_ids": tokens["token_type_ids"]
+    }
+
+        # Predict Intent
+        logits = self.session.run(["logits"], inputs)[0]
+        return int(max(enumerate(logits[0]), key=lambda x: x[1])[0])
     
     
     def get_response(self, user_input):
@@ -50,10 +49,9 @@ class ChatBot:
             return "ActiveSG gyms are only open between 7am to 10pm."
         new_weekend_info = get_weekend(user_input)
 
-        # Determine if this is a New Query or Follow Up
-        if self.is_new_query(new_gym_name, new_time, new_weekend_info) or not self.context:
-            # If New Query, clear context and get intent
-            self.context.clear()
+        # If New Query (More than 5 words), Clear Context
+        if len(user_input.split()) > 5:
+            self.context.clear()        
             self.context["Intent"] = self.get_intent(user_input)
 
         # Add Parameters to Context

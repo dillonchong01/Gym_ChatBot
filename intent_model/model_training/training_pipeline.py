@@ -38,7 +38,7 @@ training_args = TrainingArguments(
     output_dir="./results",
     evaluation_strategy="epoch",        # Evaluate by Epoch
     save_strategy="epoch",
-    save_total_limit=1,                 # Save Best Models
+    metric_for_best_model="eval_accuracy",
     load_best_model_at_end=True,
     learning_rate=2e-5,
     per_device_train_batch_size=4,
@@ -67,9 +67,21 @@ trainer = Trainer(
     train_dataset=train_dataset,
     eval_dataset=val_dataset,
     compute_metrics=compute_metrics,
-    callbacks=[EarlyStoppingCallback(early_stopping_patience=2)]
+    callbacks=[EarlyStoppingCallback(early_stopping_patience=4)]
 )
 trainer.train()
 
 # Save the Model
-model.save_pretrained("./intent_model")
+from transformers.onnx import export
+from transformers.onnx.features import FeaturesManager
+from pathlib import Path
+_, model_onnx_config = FeaturesManager.check_supported_model_or_raise(model, feature="sequence-classification")
+onnx_config = model_onnx_config(model.config)
+
+export(
+    preprocessor=tokenizer,
+    model=model,
+    config=onnx_config,
+    opset=11,
+    output=Path("./intent_model/intent_model.onnx")
+)
