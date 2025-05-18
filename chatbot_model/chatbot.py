@@ -1,12 +1,12 @@
 import onnxruntime as ort
-from transformers import AutoTokenizer
+from transformers import PreTrainedTokenizerFast
 from config import MODEL_PATH
 from chatbot_model.helper_functions import get_gym, get_time, get_weekend
 
 class ChatBot:
     def __init__(self, database, sql_generator):
         # Load Pretrained Model
-        self.tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+        self.tokenizer = PreTrainedTokenizerFast.from_pretrained(MODEL_PATH)
         self.session = ort.InferenceSession(f"{MODEL_PATH}/intent_model_quantized.onnx")
         
         # Gym Names for Extraction
