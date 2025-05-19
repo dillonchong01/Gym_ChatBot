@@ -1,13 +1,13 @@
 import onnxruntime as ort
-from transformers import PreTrainedTokenizerFast
-from config import MODEL_PATH
+from tokenizers import Tokenizer
+from config import TOKENIZER_PATH, MODEL_PATH
 from chatbot_model.helper_functions import get_gym, get_time, get_weekend
 
 class ChatBot:
     def __init__(self, database, sql_generator):
         # Load Pretrained Model
-        self.tokenizer = PreTrainedTokenizerFast.from_pretrained(MODEL_PATH)
-        self.session = ort.InferenceSession(f"{MODEL_PATH}/intent_model_quantized.onnx")
+        self.tokenizer = Tokenizer.from_file(TOKENIZER_PATH)
+        self.session = ort.InferenceSession(MODEL_PATH)
         
         # Gym Names for Extraction
         self.database = database
@@ -18,15 +18,19 @@ class ChatBot:
 
     def get_intent(self, user_input):
         """ Takes in user_input and outputs likely intent action """
-        # Tokenize the User Input
-        tokens = self.tokenizer(user_input, return_tensors="np", padding=True, truncation=True)
+        # Encode Input using Tokenizer
+        encoding = self.tokenizer.encode(user_input)
+        input_ids = [encoding.ids]
+        attention_mask = [[1] * len(encoding.ids)]
 
         # Prepare ONNX-compatible Inputs
+        input_names = [inp.name for inp in self.session.get_inputs()]
         inputs = {
-        "input_ids": tokens["input_ids"],
-        "attention_mask": tokens["attention_mask"],
-        "token_type_ids": tokens["token_type_ids"]
-    }
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+        }
+        if "token_type_ids" in input_names:
+            inputs["token_type_ids"] = [[0] * len(encoding.ids)]
 
         # Predict Intent
         logits = self.session.run(["logits"], inputs)[0]

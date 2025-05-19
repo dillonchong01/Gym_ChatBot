@@ -1,6 +1,7 @@
 import re
 
-MODEL_PATH = "intent_model/"
+TOKENIZER_PATH = "intent_model/tokenizer.json"
+MODEL_PATH = "intent_model/intent_model_quantized.onnx"
 GYMS = ["Ang Mo Kio CC", "Bukit Gombak", "Kallang Basin",
         "Katong", "Bukit Canberra", "Bishan",
         "Bukit Batok", "Sengkang", "Fernvale Square",

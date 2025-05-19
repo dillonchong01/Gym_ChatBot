@@ -14,7 +14,7 @@ templates = Jinja2Templates(directory="templates")
 database = Database("databases/gym_capacity_summary.db")
 sql_generator = SQLGenerator()
 chatbot = ChatBot(database=database, sql_generator=sql_generator)
-print("Done")
+
 
 @app.get("/", response_class=HTMLResponse)
 def chat_page(request: Request):
