@@ -54,7 +54,7 @@ class ChatBot:
         new_weekend_info = get_weekend(user_input)
 
         # If New Query (More than 5 words), Clear Context
-        if len(user_input.split()) > 5:
+        if len(user_input.split()) > 5 or "Intent" not in self.context:
             self.context.clear()        
             self.context["Intent"] = self.get_intent(user_input)
 
@@ -110,6 +110,9 @@ class ChatBot:
                 return f"{' '.join(parts)} is {gym} ActiveSG Gym with an average capacity of {avg_capacity:.1f}%"
             
         elif intent == 3:
+            if not gym_name:
+                return "Please specify gym name."
+            
             params = [p for p in (gym_name, int(weekend_info)
                                   if weekend_info is not None else None) if p is not None]
             best_time, avg_capacity = self.database.execute_query(query, params)
